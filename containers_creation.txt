@@ -1,0 +1,47 @@
+sudo docker pull alpine
+vim Dockerfile
+
+FROM alpine
+WORKDIR /home/docker
+(exit vim)
+
+mkdir scripts
+cd scripts
+
+cat > script1.sh
+nc -l -p 90
+(ctrl+c to stop)
+
+cat > script2.sh
+#!/bin/sh
+ip4=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
+echo 1 Local ip is $ip4
+nc 172.18.0.3 90
+(ctrl+c to stop)
+
+chmod +x script1.sh script2.sh
+cd ..
+
+sudo docker build . -t alp_img:latest
+
+sudo docker container run -ti -p 90:90 -d -v $(pwd)/scripts:/home/docker --name alp1 alp_img
+sudo docker container run -ti -p 91:91 -d -v $(pwd)/scripts:/home/docker --name alp2 alp_img
+sudo docker network create my_network1
+sudo docker network connect my_network1 alp1
+sudo docker network connect my_network1 alp2
+sudo docker network inspect my_network1 (see IPs: 172.18.0.2, 172.18.0.3)
+
+sudo docker container exec -it alp1 sh
+./script1.sh
+(switch to other terminal tab)
+sudo docker container exec -it alp2 sh
+./script2.sh
+type text and press Enter (text is transfered to other container/tab)
+
+Saving images:
+mkdir containers
+cd containers
+sudo docker container commit alp1 alp1_save
+sudo docker container commit alp2 alp2_save
+sudo docker image save -o alp1_save.tar alp1_save
+sudo docker image save -o alp2_save.tar alp2_save
